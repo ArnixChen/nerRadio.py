@@ -16,7 +16,7 @@ import os
 import signal
 import send2trash
 
-appVersion = "0.3 2021-09-23"
+appVersion = "0.4 2021-10-11"
 baseURL = "https://www.ner.gov.tw"
 programWebXML = None
 debugModeEnabled = False
@@ -336,7 +336,7 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, signalHandlerCtrlC)
     #normalProcess()
     #generateRequiredModulesList()
-    parser = argparse.ArgumentParser(description=f"Download NER(National Education Radio)'s program audio. rev. {appVersion}")
+    parser = argparse.ArgumentParser(description=f"Script for Downloading radio programs of National Education Radio. rev. {appVersion}")
     parser.add_argument('-n',
         dest='programName',
         nargs= 1,
