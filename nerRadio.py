@@ -16,7 +16,7 @@ import os
 import signal
 import send2trash
 
-appVersion = "0.4 2021-10-11"
+appVersion = "0.5 2021-10-11"
 baseURL = "https://www.ner.gov.tw"
 programWebXML = None
 debugModeEnabled = False
@@ -217,11 +217,13 @@ def updateID3Tag(showJson, fileName, dayObj):
     tag.comment = showJson['introduction']
     tag.album = showJson['program']['name']
     tag.album_artist = showJson['editor']
+    tag.artist = " "
     if len(showJson['guests']) > 0:
-        if showJson['guests'][0]['name'] != None:
-            tag.artist = showJson['guests'][0]['name']
-        if showJson['guests'][0]['unit'] != None:
-            tag.artist = tag.artist + showJson['guests'][0]['unit']
+        for guest in showJson['guests']:
+            if guest['name'] != None:
+                tag.artist = tag.artist + guest['name']
+            if guest['unit'] != None:
+                tag.artist = tag.artist + guest['unit'] + ' '
     tag.audio_file_url = getAudioURLOfJsonObj(showJson)
     #tag.release_date = showJson['audio']['audio']['createdAt']
     tag.save()
