@@ -13,11 +13,14 @@ import time
 import argparse
 import sys
 import os
+import signal
+import send2trash
 
 appVersion = "0.3 2021-09-23"
 baseURL = "https://www.ner.gov.tw"
 programWebXML = None
 debugModeEnabled = False
+currentDownloadFile = ""
 
 def getWebData(url):
     headers = {
@@ -101,16 +104,45 @@ def getProgramWebXML(programName):
     return validJson
 
 
-def getJsonEntryOfDay(programName, dayObj, forceReload = False):
-    dayString = f"{dayObj['year']}-{dayObj['month']}-{dayObj['day']}"
+def getProgramJsonData(programName, forceReload = False):
     global programWebXML
     if programWebXML == None or forceReload == True:
         programWebXML = getProgramWebXML(programName)
     if debugModeEnabled:
         print('Decode WebXML to JSON Object: ', end='')
-    objJson = demjson.decode(programWebXML)
+    dataJson = demjson.decode(programWebXML)
     if debugModeEnabled:
         print('Done!')
+    return dataJson
+
+
+def getProgramShowDays(programName):
+    objJson = getProgramJsonData(programName)
+    showSchedule = objJson['reducers']['program']['getItem']['time']
+    weekDict = {'一':1, '二':2, '三':3, '四':4, '五':5, '六':6, '日':7}
+    rawShowDays = showSchedule['text'].replace('週', '').replace('周', '')
+    rawShowDays = rawShowDays.replace('每', '')
+    rawShowDays = rawShowDays.replace('、', ',')
+    rawShowDays = rawShowDays.replace('一至二','1,2')
+    rawShowDays = rawShowDays.replace('二至三','2,3')
+    rawShowDays = rawShowDays.replace('三至四','3,4')
+    rawShowDays = rawShowDays.replace('四至五','4,5')
+    rawShowDays = rawShowDays.replace('五至六','5,6')
+    rawShowDays = rawShowDays.replace('六至日','6,7')
+    rawShowDays = rawShowDays.replace('五至日','5,6,7')
+    rawShowDays = rawShowDays.replace('一至三','1,2,3')
+    rawShowDays = rawShowDays.replace('一至四','1,2,3,4')
+    rawShowDays = rawShowDays.replace('一至五','1,2,3,4,5')
+    rawShowDays = rawShowDays.replace('一至六','1,2,3,4,6')
+    rawShowDays = rawShowDays.replace('一至七','1,2,3,4,5,6,7')
+    showDays = re.split(',', rawShowDays)
+    showDays = list(map(lambda x:  weekDict[x] if x in weekDict.keys() else int(x), showDays))
+    return showDays
+
+
+def getJsonEntryOfDay(programName, dayObj, forceReload = False): 
+    objJson = getProgramJsonData(programName, forceReload)
+    dayString = f"{dayObj['year']}-{dayObj['month']}-{dayObj['day']}"
     showList = objJson['reducers']['programList']['data']
     if debugModeEnabled:
         print(f'Search show\'s JsonEntry of day {dayString}: ', end='')
@@ -155,9 +187,6 @@ def getAudioFileOfJsonObj(showJson, programName, dayObj, outputFolder):
     dayString = f"{dayObj['year']}.{dayObj['month']}{dayObj['day']}"
     audioURL = getAudioURLOfJsonObj(showJson)
 
-    if outputFolder[-1] != '/':
-        outputFolder = outputFolder + '/'
-
     if audioURL == None:
         return None
     else:
@@ -167,6 +196,8 @@ def getAudioFileOfJsonObj(showJson, programName, dayObj, outputFolder):
         totalSizeInBytes = int(webData.headers.get('content-length', 0))
         blockSize = 1024  #1K bytes
         fileName = outputFolder + dayString + '.' + programName + '.mp3'
+        global currentDownloadFile
+        currentDownloadFile = fileName
         progressBar = tqdm(total=totalSizeInBytes, unit='iB', unit_scale=True)
         with open(fileName, 'wb') as fileObj:
             for packet in webData.iter_content(blockSize):
@@ -195,7 +226,7 @@ def updateID3Tag(showJson, fileName, dayObj):
     #tag.release_date = showJson['audio']['audio']['createdAt']
     tag.save()
 
-def getAudioOfDay(programName, dayObj, outputFolder=""):
+def checkOutputFolder(outputFolder=""):
     homeFolder = os.getenv('HOME') if os.name == 'posix' else os.path.expanduser('~/Documents')
     if outputFolder == "" or outputFolder == None:
         outputFolder = homeFolder + '/Radio/' + programName
@@ -205,6 +236,14 @@ def getAudioOfDay(programName, dayObj, outputFolder=""):
             os.mkdir(homeFolder + '/Radio/' + programName)
     if not os.path.exists(outputFolder):
         os.mkdir(outputFolder)
+
+    if outputFolder[-1] != '/':
+        outputFolder = outputFolder + '/'
+    return outputFolder
+
+def getAudioOfDay(programName, dayObj, outputFolder=""):
+    homeFolder = os.getenv('HOME') if os.name == 'posix' else os.path.expanduser('~/Documents')
+    outputFolder = checkOutputFolder(outputFolder)
 
     dayString = f"{dayObj['year']}-{dayObj['month']}-{dayObj['day']}"
     targetDatetime = datetime.datetime.fromisoformat(dayString)
@@ -286,37 +325,15 @@ def generateRequiredModulesList():
             if result != None:
                 print(result.group(3))
 
-def normalProcess():
-    if (len(sys.argv) < 3):
-        print(
-            "nerRadio.py -- Download NER(National Education Radio)'s program audio'"
-        )
-        print("syntax: nerRadio.py <programName> <Date> [outputFolder]")
-        print("    ex. nerRadio.py '愛的加油站' '2021-09-11' ./tmp")
-        print("    ex. nerRadio.py '愛的加油站' '2021-09-11'\n")
-        sys.exit(0)
-
-    elif (len(sys.argv) == 3):
-        programName = sys.argv[1]
-        dayObj = getDayObjFromString(sys.argv[2])
-        result = getAudioOfDay(programName, dayObj)
-        if result == None:
-            sys.exit(1)
-        else:
-            sys.exit(0)
-
-    elif (len(sys.argv) == 4):
-        programName = sys.argv[1]
-        dayObj = getDayObjFromString(sys.argv[2])
-        outputFolder = sys.argv[3]
-        result = getAudioOfDay(programName, dayObj, outputFolder)
-        if result == None:
-            sys.exit(1)
-        else:
-            sys.exit(0)
-
+def signalHandlerCtrlC(sig, frame):
+    global currentDownloadFile
+    print('You pressed Ctrl+C!')
+    if os.path.exists(currentDownloadFile):
+        send2trash.send2trash(currentDownloadFile)
+    sys.exit(0)
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, signalHandlerCtrlC)
     #normalProcess()
     #generateRequiredModulesList()
     parser = argparse.ArgumentParser(description=f"Download NER(National Education Radio)'s program audio. rev. {appVersion}")
@@ -392,6 +409,7 @@ if __name__ == '__main__':
             outputFolder = paramList['outputFolder'][0]
         else:
             outputFolder = None
+        outputFolder = checkOutputFolder(outputFolder)
         result = getAudioOfDay(programName, dayObj, outputFolder)
         if result == None:
             sys.exit(1)
@@ -438,38 +456,27 @@ if __name__ == '__main__':
         if (paramList['outputFolder'] != None):
             outputFolder = paramList['outputFolder'][0]
         else:
-            homeFolder = os.getenv('HOME') if os.name == 'posix' else os.path.expanduser('~/Documents')
-            outputFolder = homeFolder + '/Radio/' + programName
-        if outputFolder[-1] != '/':
-            outputFolder = outputFolder + '/'
+            outputFolder = None
+        outputFolder = checkOutputFolder(outputFolder)
 
+        showDays = getProgramShowDays(programName)        
+        print(f'showDays = {showDays}')
+    
         today = datetime.date.today()
-        for diff in list(range(0,7)):
+        for diff in list(range(60, 0, -1)):
             delta = datetime.timedelta(days = diff)
             tgtDay = today - delta
-            #print(f'check {tgtDay}')
-            dayObj = getDayObjFromString(tgtDay.isoformat())
-            jsonObj = getJsonEntryOfDay(programName, dayObj)
-            if jsonObj != None:
-                if debugModeEnabled:
-                    print(f'Found available day for jsonObj: {tgtDay.isoformat()}')
-                break
-        checkStartDay = tgtDay
-        #print(f'startDay = {tgtDay}')
-        
-        for diff in list(range(0, 61, 7)):
-            delta = datetime.timedelta(days = diff)
-            tgtDay = checkStartDay - delta
-            dayObj = getDayObjFromString(tgtDay.isoformat())
-            dayString = f"{dayObj['year']}.{dayObj['month']}{dayObj['day']}"
-            fileName = outputFolder + dayString + '.' + programName + '.mp3'
-            if not os.path.exists(fileName):
+            if tgtDay.isoweekday() in showDays:
+                #print(tgtDay.isoformat())
+                dayObj = getDayObjFromString(tgtDay.isoformat())
+                dayString = f"{dayObj['year']}.{dayObj['month']}{dayObj['day']}"
+                fileName = outputFolder + dayString + '.' + programName + '.mp3'
+                if not os.path.exists(fileName):
                 #print(fileName)
                 #print(tgtDay.isoformat() + ' ', end='')
-                result = getAudioOfDay(programName, dayObj)
-                if result == None:
-                    sys.exit(1)
-            else:
-                if debugModeEnabled:
+                    result = getAudioOfDay(programName, dayObj)         
+                else:
                     print(f'File {fileName} exists!')
+
         sys.exit(0)
+
