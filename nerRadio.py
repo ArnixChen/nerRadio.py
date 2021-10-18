@@ -77,7 +77,8 @@ def getProgramWebXML(programName):
     return validJson
 
 
-def getJsonEntryOfDay(programName, dayString):
+def getJsonEntryOfDay(programName, dayObj):
+    dayString = f"{dayObj['year']}-{dayObj['month']}-{dayObj['day']}"
     objJson = demjson.decode(getProgramWebXML(programName))
     showList = objJson['reducers']['programList']['data']
     for show in showList:
@@ -88,21 +89,28 @@ def getJsonEntryOfDay(programName, dayString):
 
         if showDayString == dayString:
             return show
-
+    return None
 
 def getAudioURLOfJsonObj(showJson):
-    if 'audio' in showJson:
-        audioURL = baseURL + '/api/audio/' + showJson['audio']['channel'][
-            '_id'] + ".mp3"
-        print("audioURL = " + audioURL)
-        return audioURL
+    if showJson == None:
+      return None
     else:
-        return None
+      if 'audio' in showJson:
+          audioURL = baseURL + '/api/audio/' + showJson['audio']['channel']['_id'] + ".mp3"
+          return audioURL
+      else:
+          return None
 
 
-def getAudioFileOfJsonObj(showJson, programName, dayString):
+def getAudioFileOfJsonObj(showJson, programName, dayObj):
+    dayString = f"{dayObj['year']}.{dayObj['month']}{dayObj['day']}"
     audioURL = getAudioURLOfJsonObj(showJson)
-    if audioURL != None:
+    
+    if audioURL == None:
+        print(f"ERROR, audio file not yet ready for {programName}, {dayString}")
+        return None
+    else:
+        print("audioURL = " + audioURL)
         webData = requests.get(audioURL, stream=True)
         totalSizeInBytes = int(webData.headers.get('content-length', 0))
         blockSize = 1024  #1K bytes
@@ -117,11 +125,6 @@ def getAudioFileOfJsonObj(showJson, programName, dayString):
             print("ERROR, something went wrong!")
         else:
             return fileName
-    else:
-        print(
-            f"ERROR, audio file not yet ready for {programName}, {dayString}")
-        return None
-
 
 def updateID3Tag(showJson, fileName):
     audioFile = eyed3.load(fileName)
@@ -134,11 +137,19 @@ def updateID3Tag(showJson, fileName):
     tag.audio_file_url = getAudioURLOfJsonObj(showJson)
     #tag.release_date = showJson['audio']['audio']['createdAt']
     tag.save()
+    print(f'{tag.title}')
 
-def getAudioOfDay(programName, dayString):
-    showJson = getJsonEntryOfDay(programName, dayString)
-    fileName = getAudioFileOfJsonObj(showJson, programName, dayString)
-    updateID3Tag(showJson, fileName)
+def getAudioOfDay(programName, dayObj):
+    dayString = f"{dayObj['year']}-{dayObj['month']}-{dayObj['day']}"
+    showJson = getJsonEntryOfDay(programName, dayObj)
+    fileName = getAudioFileOfJsonObj(showJson, programName, dayObj)
+
+    if fileName == None:
+      return None
+    else:
+      print(f'audioFile = {fileName}')
+      updateID3Tag(showJson, fileName)
+      return 0
 
 #getProgramInfo('愛的加油站')
 #getProgramInfo('教育行動家(上)')
@@ -149,15 +160,38 @@ def getAudioOfDay(programName, dayString):
 #getAudioOfDay("愛的加油站", "2021-08-07")
 #getAudioOfDay("愛的加油站", "2021-09-11")
 
+def getDayObjFromString(dayString):
+    if re.match(r'[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}', dayString):
+      year = dayString.split('-')[0]
+      month = dayString.split('-')[1]
+      day = dayString.split('-')[2]
+    elif re.match(r'[0-9]{4}\.[0-9]{4}', dayString):
+      year = dayString.split('.')[0]
+      month = dayString.split('.')[1][0:2]
+      day = dayString.split('.')[1][2:4]
+    elif re.match(r'[0-9]{4}/[0-9]{1,2}/[0-9]{1,2}', dayString):
+      year = dayString.split('/')[0]
+      month = dayString.split('/')[1]
+      day = dayString.split('/')[2]
+    elif re.match(r'[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}', dayString):
+      year = dayString.split('.')[0]
+      month = dayString.split('.')[1]
+      day = dayString.split('.')[2]
+    return {'year':year, 'month':month, 'day':day}
+    
 if __name__ == '__main__':
     import sys
     if (len(sys.argv) != 3):
         print("pRadioDownload.py -- Download NER's program audio'");
         print("syntax: pRadioDownload.py <programName> <Date>")
         print("    ex. pRadioDownload.py '愛的加油站' '2021-09-11'\n")
-    else:
+        sys.exit(0)
+
+    elif (len(sys.argv) == 3):
         programName = sys.argv[1]
-        dayString = sys.argv[2]
-        getAudioOfDay(programName, dayString)
-
-
+        dayObj = getDayObjFromString(sys.argv[2])
+        result = getAudioOfDay(programName, dayObj)
+        if result == None:
+          sys.exit(1)
+        else:
+          sys.exit(0)
