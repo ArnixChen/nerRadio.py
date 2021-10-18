@@ -319,13 +319,14 @@ def getDayObjFromString(dayString):
     return {'year': year, 'month': month, 'day': day}
 
 def generateRequiredModulesList():
-    with open(__file__, 'r') as fileObj:
-        for line in fileObj:
-            #print(line, end='')
-            pattern = r'^([ \t]*)(import|from) ([a-zA-Z0-9]+)'
-            result = re.search(pattern, line)
-            if result != None:
-                print(result.group(3))
+    moduleRequired='''tqdm==4.56.0
+lxml==4.6.3
+requests==2.26.0
+Send2Trash==1.8.0
+demjson==2.2.4
+beautifulsoup4==4.10.0
+eyed3==0.9.6'''
+    print(moduleRequired)
 
 def signalHandlerCtrlC(sig, frame):
     global currentDownloadFile
