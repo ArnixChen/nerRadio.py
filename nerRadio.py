@@ -102,7 +102,7 @@ def getAudioURLOfJsonObj(showJson):
           return None
 
 
-def getAudioFileOfJsonObj(showJson, programName, dayObj):
+def getAudioFileOfJsonObj(showJson, programName, dayObj, outputFolder):
     dayString = f"{dayObj['year']}.{dayObj['month']}{dayObj['day']}"
     audioURL = getAudioURLOfJsonObj(showJson)
     
@@ -114,7 +114,7 @@ def getAudioFileOfJsonObj(showJson, programName, dayObj):
         webData = requests.get(audioURL, stream=True)
         totalSizeInBytes = int(webData.headers.get('content-length', 0))
         blockSize = 1024  #1K bytes
-        fileName = dayString + '.' + programName + '.mp3'
+        fileName = outputFolder + dayString + '.' + programName + '.mp3'
         progressBar = tqdm(total=totalSizeInBytes, unit='iB', unit_scale=True)
         with open(fileName, 'wb') as fileObj:
             for packet in webData.iter_content(blockSize):
@@ -139,16 +139,22 @@ def updateID3Tag(showJson, fileName):
     tag.save()
     print(f'{tag.title}')
 
-def getAudioOfDay(programName, dayObj):
+def getAudioOfDay(programName, dayObj, outputFolder=""):
+    import os
+    homeFolder = os.getenv('HOME')
+    if outputFolder=="":
+      outputFolder = homeFolder + '/Radio/' + programName + '/'
+      
     dayString = f"{dayObj['year']}-{dayObj['month']}-{dayObj['day']}"
     showJson = getJsonEntryOfDay(programName, dayObj)
-    fileName = getAudioFileOfJsonObj(showJson, programName, dayObj)
+    fileName = getAudioFileOfJsonObj(showJson, programName, dayObj, outputFolder)
 
     if fileName == None:
       return None
     else:
       print(f'audioFile = {fileName}')
       updateID3Tag(showJson, fileName)
+      #os.execl("/usr/bin/mpg123", "~/bin/complete.mp3")
       return 0
 
 #getProgramInfo('愛的加油站')
