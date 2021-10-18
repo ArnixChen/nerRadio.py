@@ -409,12 +409,26 @@ if __name__ == '__main__':
             sys.exit(1)
         programName = paramList['programName'][0]
         #print(programName)
-        result = getJsonEntryOfDay(programName, dayObj)
-        if result == None:
-            sys.exit(1)
+        if date == datetime.date.today().isoformat():
+            dayString = f"{dayObj['year']}-{dayObj['month']}-{dayObj['day']}"
+            programWebXML = getProgramWebXML(programName)
+            if debugModeEnabled:
+                print('Decode WebXML to JSON Object: ', end='')
+            result = demjson.decode(programWebXML)
+            if result == None:
+                print(f'ERROR, No json entry for program {programName}')
+                sys.exit(1)
+            else:
+                print(result)
+                sys.exit(0)
         else:
-            print(result)
-            sys.exit(0)
+            result = getJsonEntryOfDay(programName, dayObj)
+            if result == None:
+                print(f'ERROR, No json entry for day {date}')
+                sys.exit(1)
+            else:
+                print(result)
+                sys.exit(0)
     elif paramList['fillUp'] == True:
         if (paramList['programName'] == None):
             print("ERROR, Program name is missing!")
