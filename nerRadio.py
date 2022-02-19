@@ -122,19 +122,22 @@ def getProgramShowDays(programName):
     weekDict = {'一':1, '二':2, '三':3, '四':4, '五':5, '六':6, '日':7}
     rawShowDays = showSchedule['text'].replace('週', '').replace('周', '')
     rawShowDays = rawShowDays.replace('每', '')
+    rawShowDays = rawShowDays.replace('至', '-')
+    rawShowDays = rawShowDays.replace('~', '-')
     rawShowDays = rawShowDays.replace('、', ',')
-    rawShowDays = rawShowDays.replace('一至二','1,2')
-    rawShowDays = rawShowDays.replace('二至三','2,3')
-    rawShowDays = rawShowDays.replace('三至四','3,4')
-    rawShowDays = rawShowDays.replace('四至五','4,5')
-    rawShowDays = rawShowDays.replace('五至六','5,6')
-    rawShowDays = rawShowDays.replace('六至日','6,7')
-    rawShowDays = rawShowDays.replace('五至日','5,6,7')
-    rawShowDays = rawShowDays.replace('一至三','1,2,3')
-    rawShowDays = rawShowDays.replace('一至四','1,2,3,4')
-    rawShowDays = rawShowDays.replace('一至五','1,2,3,4,5')
-    rawShowDays = rawShowDays.replace('一至六','1,2,3,4,6')
-    rawShowDays = rawShowDays.replace('一至七','1,2,3,4,5,6,7')
+    rawShowDays = rawShowDays.replace('一-二','1,2')
+    rawShowDays = rawShowDays.replace('二-三','2,3')
+    rawShowDays = rawShowDays.replace('三-四','3,4')
+    rawShowDays = rawShowDays.replace('四-五','4,5')
+    rawShowDays = rawShowDays.replace('五-六','5,6')
+    rawShowDays = rawShowDays.replace('六-日','6,7')
+    rawShowDays = rawShowDays.replace('五-日','5,6,7')
+    rawShowDays = rawShowDays.replace('一-三-三','1,2,3')
+    rawShowDays = rawShowDays.replace('一-三','1,2,3')
+    rawShowDays = rawShowDays.replace('一-四','1,2,3,4')
+    rawShowDays = rawShowDays.replace('一-五','1,2,3,4,5')
+    rawShowDays = rawShowDays.replace('一-六','1,2,3,4,6')
+    rawShowDays = rawShowDays.replace('一-七','1,2,3,4,5,6,7')
     showDays = re.split(',', rawShowDays)
     showDays = list(map(lambda x:  weekDict[x] if x in weekDict.keys() else int(x), showDays))
     return showDays
@@ -319,14 +322,13 @@ def getDayObjFromString(dayString):
     return {'year': year, 'month': month, 'day': day}
 
 def generateRequiredModulesList():
-    moduleRequired='''tqdm==4.56.0
-lxml==4.6.3
-requests==2.26.0
-Send2Trash==1.8.0
-demjson==2.2.4
-beautifulsoup4==4.10.0
-eyed3==0.9.6'''
-    print(moduleRequired)
+    with open(__file__, 'r') as fileObj:
+        for line in fileObj:
+            #print(line, end='')
+            pattern = r'^([ \t]*)(import|from) ([a-zA-Z0-9]+)'
+            result = re.search(pattern, line)
+            if result != None:
+                print(result.group(3))
 
 def signalHandlerCtrlC(sig, frame):
     global currentDownloadFile
@@ -482,4 +484,5 @@ if __name__ == '__main__':
                     print(f'File {fileName} exists!')
 
         sys.exit(0)
+
 
