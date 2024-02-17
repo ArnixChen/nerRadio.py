@@ -17,7 +17,7 @@ pip install -r requirements.txt
 ### Copy nerRadio.py to your local bin folder
 ```bash
 cp nerRadio.py ~/.local/bin
-chmod u+x ~/.local/bin
+chmod u+x ~/.local/bin/nerRadio.py
 ```
 ## Examples of NER. radio program downloading.
 ### Get program media by program-name and date.
