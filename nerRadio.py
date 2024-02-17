@@ -4,7 +4,7 @@ import requests
 import lxml
 import bs4
 import re
-import demjson
+import demjson3 as demjson
 import datetime
 from tqdm import tqdm
 import eyed3
