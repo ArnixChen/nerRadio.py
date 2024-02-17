@@ -22,6 +22,13 @@ chmod u+x ~/.local/bin/nerRadio.py
 ## Examples of NER. radio program downloading.
 ### Get program media by program-name and date.
 ```bash
-syntax: nerRadio.py -n <PROGRAM-NAME> -d <DATE> -g
-nerRadio.py -n 麻吉同學會 -d 2024.02.14 -g -o ./
+# This command will just download one media with given program-name and date.
+nerRadio.py -n <PROGRAM-NAME> -d <DATE> -o <OUTPUT-Folder> -g
+ex. nerRadio.py -n 麻吉同學會 -d 2024.02.14 -o ./ -g
+```
+### Get all program medias that have not been downloaded.
+```bash
+# This command will download all medias available for given program-name.
+nerRadio.py -n <PROGRAM-NAME> -o <OUTPUT-Folder> -f -g
+ex. nerRadio -n 麻吉同學會 -o ./ -f -g
 ```
