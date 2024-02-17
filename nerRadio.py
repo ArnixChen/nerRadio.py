@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/home/test/.local/venv_nerRadio/bin/python
 
 import requests
 import lxml
